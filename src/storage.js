@@ -362,9 +362,6 @@ function getModelForToday() {
     const todayEntry = getTodayLimits();
     const groq = todayEntry.groq;
 
-    if (groq['qwen3-32b'].chars < groq['qwen3-32b'].limit) {
-        return 'qwen/qwen3-32b';
-    }
     if (groq['gpt-oss-120b'].chars < groq['gpt-oss-120b'].limit) {
         return 'openai/gpt-oss-120b';
     }
