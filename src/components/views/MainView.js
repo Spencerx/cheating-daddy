@@ -394,8 +394,6 @@ export class MainView extends LitElement {
         }
 
         .download-controls {
-            position: relative;
-            z-index: 15001;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -403,14 +401,6 @@ export class MainView extends LitElement {
             margin-top: var(--space-xs);
             font-size: var(--font-size-xs);
             color: var(--text-muted);
-        }
-
-        .download-interaction-blocker {
-            position: fixed;
-            inset: 0;
-            z-index: 15000;
-            background: transparent;
-            cursor: wait;
         }
 
         .download-cancel {
@@ -1132,7 +1122,6 @@ export class MainView extends LitElement {
             ${
                 isDownloading
                     ? html`
-                          <div class="download-interaction-blocker" aria-hidden="true"></div>
                           <div class="download-controls">
                               <span>Downloading: ${this.downloadProgress.label || 'Local AI files'}</span>
                               <button class="download-cancel" @click=${() => this.onCancelDownload()}>Cancel</button>

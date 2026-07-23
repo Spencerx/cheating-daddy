@@ -23,6 +23,8 @@ export class CheatingDaddyApp extends LitElement {
             display: block;
             width: 100%;
             height: 100vh;
+            overflow: hidden;
+            border-radius: 12px;
             background: var(--bg-app);
             color: var(--text-primary);
         }
@@ -43,7 +45,7 @@ export class CheatingDaddyApp extends LitElement {
             top: 0;
             left: 0;
             right: 0;
-            z-index: 20000;
+            z-index: 9999;
             display: flex;
             align-items: center;
             height: 38px;
@@ -54,11 +56,6 @@ export class CheatingDaddyApp extends LitElement {
             flex: 1;
             height: 100%;
             -webkit-app-region: drag;
-        }
-
-        .top-drag-bar.downloading .drag-region {
-            pointer-events: none;
-            -webkit-app-region: no-drag;
         }
 
         .top-drag-bar.hidden {
@@ -979,7 +976,7 @@ export class CheatingDaddyApp extends LitElement {
 
         return html`
             <div class="app-shell">
-                <div class="top-drag-bar ${isLive ? 'hidden' : ''} ${this._localAiDownloadProgress.active ? 'downloading' : ''}">
+                <div class="top-drag-bar ${isLive ? 'hidden' : ''}">
                     <div class="traffic-lights">
                         <button class="traffic-light close" @click=${() => this.handleClose()} title="Close"></button>
                         <button class="traffic-light minimize" @click=${() => this._handleMinimize()} title="Minimize"></button>
