@@ -8,7 +8,11 @@ const CONFIG_VERSION = 1;
 const DEFAULT_CONFIG = {
     configVersion: CONFIG_VERSION,
     onboarded: false,
-    layout: 'normal'
+    layout: 'normal',
+    geminiLiveModel: 'gemini-3.1-flash-live-preview',
+    groqModel: 'qwen/qwen3.6-27b',
+    groqImageModel: 'qwen/qwen3.6-27b',
+    disableGroqThinking: true,
 };
 
 const DEFAULT_CREDENTIALS = {
@@ -162,7 +166,8 @@ function initializeStorage() {
 // ============ CONFIG ============
 
 function getConfig() {
-    return readJsonFile(getConfigPath(), DEFAULT_CONFIG);
+    const saved = readJsonFile(getConfigPath(), {});
+    return { ...DEFAULT_CONFIG, ...saved };
 }
 
 function setConfig(config) {

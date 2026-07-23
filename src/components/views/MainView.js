@@ -111,6 +111,95 @@ export class MainView extends LitElement {
             gap: var(--space-xs);
         }
 
+        .config-section {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: var(--bg-surface);
+            overflow: hidden;
+        }
+
+        .config-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-md);
+            padding: 12px 14px;
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .config-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .config-summary-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .config-summary-title {
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-medium);
+            color: var(--text-primary);
+        }
+
+        .config-summary-description {
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+        }
+
+        .config-chevron {
+            width: 16px;
+            height: 16px;
+            color: var(--text-muted);
+            transition: transform var(--transition);
+        }
+
+        .config-section[open] .config-chevron {
+            transform: rotate(180deg);
+        }
+
+        .config-content {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+            padding: 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .config-note {
+            padding: 10px 12px;
+            border: 1px solid rgba(212, 160, 23, 0.28);
+            border-radius: var(--radius-sm);
+            background: rgba(212, 160, 23, 0.08);
+            color: var(--text-secondary);
+            font-size: var(--font-size-xs);
+            line-height: var(--line-height);
+        }
+
+        .config-checkbox {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-sm);
+            cursor: pointer;
+        }
+
+        .config-checkbox input {
+            width: 16px;
+            height: 16px;
+            margin-top: 2px;
+            padding: 0;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .config-checkbox-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
         .form-label {
             font-size: var(--font-size-xs);
             font-weight: var(--font-weight-medium);
@@ -381,13 +470,49 @@ export class MainView extends LitElement {
             pointer-events: none;
         }
 
+        .help-dialog-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-lg);
+            background: rgba(0, 0, 0, 0.62);
+        }
+
+        .help-dialog {
+            width: min(680px, 100%);
+            max-height: calc(100vh - 48px);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+            padding: var(--space-lg);
+            overflow: hidden;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-lg);
+            color: var(--text-primary);
+        }
+
+        .help-dialog-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-md);
+        }
+
+        .help-dialog-title {
+            font-size: var(--font-size-lg);
+            font-weight: var(--font-weight-semibold);
+        }
+
         /* ── Help content ── */
 
         .help-content {
             display: flex;
             flex-direction: column;
             gap: var(--space-md);
-            max-height: 500px;
             overflow-y: auto;
         }
 
@@ -492,6 +617,10 @@ export class MainView extends LitElement {
         _geminiKey: { state: true },
         _groqKey: { state: true },
         _openaiKey: { state: true },
+        _geminiLiveModel: { state: true },
+        _groqModel: { state: true },
+        _groqImageModel: { state: true },
+        _disableGroqThinking: { state: true },
         _tokenError: { state: true },
         _keyError: { state: true },
         // Local AI state
@@ -515,6 +644,10 @@ export class MainView extends LitElement {
         this._geminiKey = '';
         this._groqKey = '';
         this._openaiKey = '';
+        this._geminiLiveModel = 'gemini-3.1-flash-live-preview';
+        this._groqModel = 'qwen/qwen3.6-27b';
+        this._groqImageModel = 'qwen/qwen3.6-27b';
+        this._disableGroqThinking = true;
         this._tokenError = false;
         this._keyError = false;
         this._showLocalHelp = false;
@@ -533,7 +666,8 @@ export class MainView extends LitElement {
 
     async _loadFromStorage() {
         try {
-            const [prefs, creds] = await Promise.all([
+            const [config, prefs, creds] = await Promise.all([
+                cheatingDaddy.storage.getConfig(),
                 cheatingDaddy.storage.getPreferences(),
                 cheatingDaddy.storage.getCredentials().catch(() => ({})),
             ]);
@@ -550,6 +684,10 @@ export class MainView extends LitElement {
             this._geminiKey = await cheatingDaddy.storage.getApiKey().catch(() => '') || '';
             this._groqKey = await cheatingDaddy.storage.getGroqApiKey().catch(() => '') || '';
             this._openaiKey = creds.openaiKey || '';
+            this._geminiLiveModel = config.geminiLiveModel || 'gemini-3.1-flash-live-preview';
+            this._groqModel = config.groqModel || 'qwen/qwen3.6-27b';
+            this._groqImageModel = config.groqImageModel || 'qwen/qwen3.6-27b';
+            this._disableGroqThinking = config.disableGroqThinking === true;
 
             // Load local AI settings
             this._ollamaHost = prefs.ollamaHost || 'http://127.0.0.1:11434';
@@ -676,6 +814,11 @@ export class MainView extends LitElement {
     }
 
     _handleKeydown(e) {
+        if (e.key === 'Escape' && this._showLocalHelp) {
+            this._closeLocalHelp();
+            return;
+        }
+
         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
         if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault();
@@ -716,6 +859,30 @@ export class MainView extends LitElement {
         this.requestUpdate();
     }
 
+    async _saveGeminiLiveModel(val) {
+        this._geminiLiveModel = val;
+        await cheatingDaddy.storage.updateConfig('geminiLiveModel', val);
+        this.requestUpdate();
+    }
+
+    async _saveGroqModel(val) {
+        this._groqModel = val;
+        await cheatingDaddy.storage.updateConfig('groqModel', val);
+        this.requestUpdate();
+    }
+
+    async _saveGroqImageModel(val) {
+        this._groqImageModel = val;
+        await cheatingDaddy.storage.updateConfig('groqImageModel', val);
+        this.requestUpdate();
+    }
+
+    async _saveDisableGroqThinking(disabled) {
+        this._disableGroqThinking = disabled;
+        await cheatingDaddy.storage.updateConfig('disableGroqThinking', disabled);
+        this.requestUpdate();
+    }
+
     async _saveOpenaiKey(val) {
         this._openaiKey = val;
         try {
@@ -745,6 +912,18 @@ export class MainView extends LitElement {
 
     _handleProfileChange(e) {
         this.onProfileChange(e.target.value);
+    }
+
+    _openLocalHelp() {
+        this._showLocalHelp = true;
+    }
+
+    _closeLocalHelp() {
+        this._showLocalHelp = false;
+    }
+
+    _handleHelpDialogClick(e) {
+        e.stopPropagation();
     }
 
     // ── Start ──
@@ -818,34 +997,107 @@ export class MainView extends LitElement {
 
     // ── BYOK mode ──
 
+    _renderConfigChevron() {
+        return html`
+            <svg class="config-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="m5 7.5 5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        `;
+    }
+
     _renderByokMode() {
         return html`
-            <div class="form-group">
-                <label class="form-label">Gemini API Key</label>
-                <input
-                    type="password"
-                    placeholder="Required"
-                    .value=${this._geminiKey}
-                    @input=${e => this._saveGeminiKey(e.target.value)}
-                    class=${this._keyError ? 'error' : ''}
-                />
-                <div class="form-hint">
-                    <span class="link" @click=${() => this.onExternalLink('https://aistudio.google.com/apikey')}>Get Gemini key</span>
-                </div>
-            </div>
+            <details class="config-section">
+                <summary class="config-summary">
+                    <span class="config-summary-text">
+                        <span class="config-summary-title">Transcription</span>
+                        <span class="config-summary-description">Gemini Live connection</span>
+                    </span>
+                    ${this._renderConfigChevron()}
+                </summary>
+                <div class="config-content">
+                    <div class="form-group">
+                        <label class="form-label">Gemini API Key</label>
+                        <input
+                            type="password"
+                            placeholder="Required"
+                            .value=${this._geminiKey}
+                            @input=${e => this._saveGeminiKey(e.target.value)}
+                            class=${this._keyError ? 'error' : ''}
+                        />
+                        <div class="form-hint">
+                            <span class="link" @click=${() => this.onExternalLink('https://aistudio.google.com/apikey')}>Get Gemini key</span>
+                        </div>
+                    </div>
 
-            <div class="form-group">
-                <label class="form-label">Groq API Key</label>
-                <input
-                    type="password"
-                    placeholder="Optional"
-                    .value=${this._groqKey}
-                    @input=${e => this._saveGroqKey(e.target.value)}
-                />
-                <div class="form-hint">
-                    <span class="link" @click=${() => this.onExternalLink('https://console.groq.com/keys')}>Get Groq key</span>
+                    <div class="form-group">
+                        <label class="form-label">Gemini Live Model</label>
+                        <input
+                            type="text"
+                            .value=${this._geminiLiveModel}
+                            @input=${e => this._saveGeminiLiveModel(e.target.value)}
+                        />
+                    </div>
                 </div>
-            </div>
+            </details>
+
+            <details class="config-section">
+                <summary class="config-summary">
+                    <span class="config-summary-text">
+                        <span class="config-summary-title">AI responses</span>
+                        <span class="config-summary-description">Groq key and response model</span>
+                    </span>
+                    ${this._renderConfigChevron()}
+                </summary>
+                <div class="config-content">
+                    <div class="form-group">
+                        <label class="form-label">Groq API Key</label>
+                        <input
+                            type="password"
+                            placeholder="Optional"
+                            .value=${this._groqKey}
+                            @input=${e => this._saveGroqKey(e.target.value)}
+                        />
+                        <div class="form-hint">
+                            <span class="link" @click=${() => this.onExternalLink('https://console.groq.com/keys')}>Get Groq key</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Groq Model</label>
+                        <input
+                            type="text"
+                            .value=${this._groqModel}
+                            @input=${e => this._saveGroqModel(e.target.value)}
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Groq Image Model</label>
+                        <input
+                            type="text"
+                            .value=${this._groqImageModel}
+                            @input=${e => this._saveGroqImageModel(e.target.value)}
+                        />
+                    </div>
+
+                    <label class="config-checkbox">
+                        <input
+                            type="checkbox"
+                            .checked=${this._disableGroqThinking}
+                            @change=${e => this._saveDisableGroqThinking(e.target.checked)}
+                        />
+                        <span class="config-checkbox-text">
+                            <span class="config-summary-title">Disable thinking</span>
+                            <span class="config-summary-description">Faster responses with less internal reasoning</span>
+                        </span>
+                    </label>
+
+                    <div class="config-note">
+                        If the Groq API key is empty, Gemini Live is used for answers instead. Its answer quality may be lower.
+                    </div>
+                </div>
+            </details>
 
             ${this._renderStartButton()}
             ${this._renderDivider()}
@@ -862,44 +1114,66 @@ export class MainView extends LitElement {
 
     _renderLocalMode() {
         return html`
-            <div class="form-group">
-                <label class="form-label">Ollama Host</label>
-                <input
-                    type="text"
-                    placeholder="http://127.0.0.1:11434"
-                    .value=${this._ollamaHost}
-                    @input=${e => this._saveOllamaHost(e.target.value)}
-                />
-                <div class="form-hint">Ollama must be running locally</div>
-            </div>
+            <details class="config-section">
+                <summary class="config-summary">
+                    <span class="config-summary-text">
+                        <span class="config-summary-title">Language model</span>
+                        <span class="config-summary-description">Ollama host and model</span>
+                    </span>
+                    ${this._renderConfigChevron()}
+                </summary>
+                <div class="config-content">
+                    <div class="form-group">
+                        <label class="form-label">Ollama Host</label>
+                        <input
+                            type="text"
+                            placeholder="http://127.0.0.1:11434"
+                            .value=${this._ollamaHost}
+                            @input=${e => this._saveOllamaHost(e.target.value)}
+                        />
+                        <div class="form-hint">Ollama must be running locally</div>
+                    </div>
 
-            <div class="form-group">
-                <label class="form-label">Ollama Model</label>
-                <input
-                    type="text"
-                    placeholder="llama3.1"
-                    .value=${this._ollamaModel}
-                    @input=${e => this._saveOllamaModel(e.target.value)}
-                />
-                <div class="form-hint">Run <code style="font-family: var(--font-mono); font-size: 11px; background: var(--bg-elevated); padding: 1px 4px; border-radius: 3px;">ollama pull ${this._ollamaModel}</code> first</div>
-            </div>
-
-            <div class="form-group">
-                <div class="whisper-label-row">
-                    <label class="form-label">Whisper Model</label>
-                    ${this.whisperDownloading ? html`<div class="whisper-spinner"></div>` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Ollama Model</label>
+                        <input
+                            type="text"
+                            placeholder="llama3.1"
+                            .value=${this._ollamaModel}
+                            @input=${e => this._saveOllamaModel(e.target.value)}
+                        />
+                        <div class="form-hint">Run <code style="font-family: var(--font-mono); font-size: 11px; background: var(--bg-elevated); padding: 1px 4px; border-radius: 3px;">ollama pull ${this._ollamaModel}</code> first</div>
+                    </div>
                 </div>
-                <select
-                    .value=${this._whisperModel}
-                    @change=${e => this._saveWhisperModel(e.target.value)}
-                >
-                    <option value="Xenova/whisper-tiny" ?selected=${this._whisperModel === 'Xenova/whisper-tiny'}>Tiny (fastest, least accurate)</option>
-                    <option value="Xenova/whisper-base" ?selected=${this._whisperModel === 'Xenova/whisper-base'}>Base</option>
-                    <option value="Xenova/whisper-small" ?selected=${this._whisperModel === 'Xenova/whisper-small'}>Small (recommended)</option>
-                    <option value="Xenova/whisper-medium" ?selected=${this._whisperModel === 'Xenova/whisper-medium'}>Medium (most accurate, slowest)</option>
-                </select>
-                <div class="form-hint">${this.whisperDownloading ? 'Downloading model...' : 'Downloaded automatically on first use'}</div>
-            </div>
+            </details>
+
+            <details class="config-section">
+                <summary class="config-summary">
+                    <span class="config-summary-text">
+                        <span class="config-summary-title">Transcription</span>
+                        <span class="config-summary-description">Whisper speech-to-text model</span>
+                    </span>
+                    ${this._renderConfigChevron()}
+                </summary>
+                <div class="config-content">
+                    <div class="form-group">
+                        <div class="whisper-label-row">
+                            <label class="form-label">Whisper Model</label>
+                            ${this.whisperDownloading ? html`<div class="whisper-spinner"></div>` : ''}
+                        </div>
+                        <select
+                            .value=${this._whisperModel}
+                            @change=${e => this._saveWhisperModel(e.target.value)}
+                        >
+                            <option value="Xenova/whisper-tiny" ?selected=${this._whisperModel === 'Xenova/whisper-tiny'}>Tiny (fastest, least accurate)</option>
+                            <option value="Xenova/whisper-base" ?selected=${this._whisperModel === 'Xenova/whisper-base'}>Base</option>
+                            <option value="Xenova/whisper-small" ?selected=${this._whisperModel === 'Xenova/whisper-small'}>Small (recommended)</option>
+                            <option value="Xenova/whisper-medium" ?selected=${this._whisperModel === 'Xenova/whisper-medium'}>Medium (most accurate, slowest)</option>
+                        </select>
+                        <div class="form-hint">${this.whisperDownloading ? 'Downloading model...' : 'Downloaded automatically on first use'}</div>
+                    </div>
+                </div>
+            </details>
 
             ${this._renderStartButton()}
             ${this._renderDivider()}
@@ -923,7 +1197,7 @@ export class MainView extends LitElement {
                 ${this._mode === 'local' ? html`
                     <div class="title-row">
                         <div class="page-title">Cheating Daddy <span class="mode-suffix">Local AI</span></div>
-                        <button class="help-btn" @click=${() => { this._showLocalHelp = !this._showLocalHelp; }}>${this._showLocalHelp ? closeIcon : helpIcon}</button>
+                        <button class="help-btn" @click=${this._openLocalHelp} aria-label="Open Local AI help">${helpIcon}</button>
                     </div>
                 ` : html`
                     <div class="page-title">
@@ -936,62 +1210,78 @@ export class MainView extends LitElement {
 
                 <!-- Cloud mode render branch intentionally disabled. -->
                 ${this._mode === 'byok' ? this._renderByokMode() : ''}
-                ${this._mode === 'local' ? (this._showLocalHelp ? this._renderLocalHelp() : this._renderLocalMode()) : ''}
+                ${this._mode === 'local' ? this._renderLocalMode() : ''}
             </div>
+            ${this._mode === 'local' && this._showLocalHelp ? this._renderLocalHelp(closeIcon) : ''}
         `;
     }
 
-    _renderLocalHelp() {
+    _renderLocalHelp(closeIcon) {
         return html`
-            <div class="help-content">
-                <div class="help-section">
-                    <div class="help-section-title">What is Ollama?</div>
-                    <div class="help-section-text">Ollama lets you run large language models locally on your machine. Everything stays on your computer — no data leaves your device.</div>
-                </div>
-
-                <div class="help-section">
-                    <div class="help-section-title">Install Ollama</div>
-                    <div class="help-section-text">Download from <span class="help-link" @click=${() => this.onExternalLink('https://ollama.com/download')}>ollama.com/download</span> and install it.</div>
-                </div>
-
-                <div class="help-section">
-                    <div class="help-section-title">Ollama must be running</div>
-                    <div class="help-section-text">Ollama needs to be running before you start a session. If it's not running, open your terminal and type:</div>
-                    <code class="help-code">ollama serve</code>
-                </div>
-
-                <div class="help-section">
-                    <div class="help-section-title">Pull a model</div>
-                    <div class="help-section-text">Download a model before first use:</div>
-                    <code class="help-code">ollama pull gemma3:4b</code>
-                </div>
-
-                <div class="help-section">
-                    <div class="help-section-title">Recommended models</div>
-                    <div class="help-models">
-                        <div class="help-model"><span class="help-model-name">gemma3:4b</span><span>4B — fast, multimodal (images + text)</span></div>
-                        <div class="help-model"><span class="help-model-name">mistral-small</span><span>8B — solid all-rounder, text only</span></div>
+            <div class="help-dialog-backdrop" @click=${this._closeLocalHelp}>
+                <section
+                    class="help-dialog"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="local-help-title"
+                    @click=${this._handleHelpDialogClick}
+                >
+                    <div class="help-dialog-header">
+                        <div id="local-help-title" class="help-dialog-title">Local AI setup</div>
+                        <button class="help-btn" @click=${this._closeLocalHelp} aria-label="Close Local AI help">${closeIcon}</button>
                     </div>
-                    <div class="help-section-text">gemma3:4b and above supports images — screenshots will work with these models.</div>
-                </div>
 
-                <div class="help-section">
-                    <div class="help-warn">Avoid "thinking" models (e.g. deepseek-r1, qwq). Local inference is already slower — a thinking model adds extra delay before responding.</div>
-                </div>
+                    <div class="help-content">
+                        <div class="help-section">
+                            <div class="help-section-title">What is Ollama?</div>
+                            <div class="help-section-text">Ollama lets you run large language models locally on your machine. Everything stays on your computer — no data leaves your device.</div>
+                        </div>
 
-                <div class="help-section">
-                    <div class="help-section-title">Whisper</div>
-                    <div class="help-section-text">The Whisper speech-to-text model is downloaded automatically the first time you start a session. This is a one-time download.</div>
-                </div>
+                        <div class="help-section">
+                            <div class="help-section-title">Install Ollama</div>
+                            <div class="help-section-text">Download from <span class="help-link" @click=${() => this.onExternalLink('https://ollama.com/download')}>ollama.com/download</span> and install it.</div>
+                        </div>
 
-                <hr class="help-divider" />
+                        <div class="help-section">
+                            <div class="help-section-title">Ollama must be running</div>
+                            <div class="help-section-text">Ollama needs to be running before you start a session. If it's not running, open your terminal and type:</div>
+                            <code class="help-code">ollama serve</code>
+                        </div>
 
-                <div class="help-section">
-                    <div class="help-section-title">Computer hanging or slow?</div>
-                    <div class="help-section-text">Running models locally uses a lot of RAM and CPU. If your computer slows down or freezes, it's likely the LLM. Switch back to BYOK mode if you want to use a hosted provider instead.</div>
-                </div>
+                        <div class="help-section">
+                            <div class="help-section-title">Pull a model</div>
+                            <div class="help-section-text">Download a model before first use:</div>
+                            <code class="help-code">ollama pull gemma3:4b</code>
+                        </div>
 
-                <button class="help-cloud-btn" @click=${() => { this._showLocalHelp = false; this._saveMode('byok'); }}>Switch to BYOK</button>
+                        <div class="help-section">
+                            <div class="help-section-title">Recommended models</div>
+                            <div class="help-models">
+                                <div class="help-model"><span class="help-model-name">gemma3:4b</span><span>4B — fast, multimodal (images + text)</span></div>
+                                <div class="help-model"><span class="help-model-name">mistral-small</span><span>8B — solid all-rounder, text only</span></div>
+                            </div>
+                            <div class="help-section-text">gemma3:4b and above supports images — screenshots will work with these models.</div>
+                        </div>
+
+                        <div class="help-section">
+                            <div class="help-warn">Avoid "thinking" models (e.g. deepseek-r1, qwq). Local inference is already slower — a thinking model adds extra delay before responding.</div>
+                        </div>
+
+                        <div class="help-section">
+                            <div class="help-section-title">Whisper</div>
+                            <div class="help-section-text">The Whisper speech-to-text model is downloaded automatically the first time you start a session. This is a one-time download.</div>
+                        </div>
+
+                        <hr class="help-divider" />
+
+                        <div class="help-section">
+                            <div class="help-section-title">Computer hanging or slow?</div>
+                            <div class="help-section-text">Running models locally uses a lot of RAM and CPU. If your computer slows down or freezes, it's likely the LLM. Switch back to BYOK mode if you want to use a hosted provider instead.</div>
+                        </div>
+
+                        <button class="help-cloud-btn" @click=${() => { this._closeLocalHelp(); this._saveMode('byok'); }}>Switch to BYOK</button>
+                    </div>
+                </section>
             </div>
         `;
     }
